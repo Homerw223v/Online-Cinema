@@ -1,0 +1,62 @@
+version: "3.9"
+services:
+  zookeeper:
+    image: zookeeper:3.8
+    container_name: zookeeper
+    profiles: [metrics]
+    healthcheck:
+      test: [ "CMD-SHELL", "echo srvr | nc zookeeper 2181 | grep Mode || exit 1" ]
+      interval: 5s
+      timeout: 10s
+      retries: 3
+    restart: 'always'
+
+  clickhouse-node1:
+    image: clickhouse/clickhouse-server:23
+    container_name: clickhouse-node1
+    expose:
+      - "8123"
+    volumes:
+      - clickhouse_volume_1:/var/lib/clickhouse/
+      - ./clickhouse/data/node1/configs:/etc/clickhouse-server
+      - ./clickhouse/data/init_ddl/metrics.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    profiles: [metrics]
+    restart: 'always'
+
+  clickhouse-node2:
+    image: clickhouse/clickhouse-server:23
+    container_name: clickhouse-node2
+    expose:
+      - "8123"
+    volumes:
+      - clickhouse_volume_2:/var/lib/clickhouse/
+      - ./clickhouse/data/node2/configs:/etc/clickhouse-server
+      - ./clickhouse/data/init_ddl/metrics.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    profiles: [metrics]
+    restart: 'always'
+
+  clickhouse-node3:
+    image: clickhouse/clickhouse-server:23
+    container_name: clickhouse-node3
+    expose:
+      - "8123"
+    volumes:
+      - clickhouse_volume_3:/var/lib/clickhouse/
+      - ./clickhouse/data/node3/configs:/etc/clickhouse-server
+      - ./clickhouse/data/init_ddl/metrics.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    profiles: [metrics]
+    restart: 'always'
+  
+volumes:
+  clickhouse_volume_1:
+  clickhouse_volume_2:
+  clickhouse_volume_3:

@@ -1,0 +1,47 @@
+version: "3.9"
+
+include:
+  - docker-compose.kafka.yml
+  - docker-compose.clickhouse.yml
+
+services:
+  metrics-api:
+    build: ./metrics_api
+    container_name: metrics-api
+    env_file:
+      - ./metrics_api/.env
+    expose:
+      - "8000"
+    restart: "always"
+    depends_on:
+      kafka-0:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+    profiles: [metrics]
+    networks:
+      default:
+      cinema_network:
+        ipv4_address: 172.30.1.204
+    healthcheck:
+      test: [ "CMD-SHELL", 'curl -X GET -s --header "X-Request-Id: 2" http://metrics-api:8000/healthcheck || exit 1' ]
+      interval: 30s
+      timeout: 10s
+      retries: 50
+      start_period: 30s
+
+  metrics-etl:
+    build: ./metrics_etl
+    env_file:
+      - ./metrics_etl/.env
+    container_name: metrics-etl
+    restart: "always"
+    profiles: [metrics]
+    depends_on:
+      kafka-0:
+        condition: service_healthy
+      clickhouse-node1:
+        condition: service_started
+
+volumes:
+  static_volume:

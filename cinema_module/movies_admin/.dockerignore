@@ -1,0 +1,11 @@
+# dirs
+uploads
+venv
+.vscode
+__pycache__
+
+# files
+*.pdf
+*.txt
+!requirements.txt
+.env

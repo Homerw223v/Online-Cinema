@@ -1,0 +1,128 @@
+version: '3.9'
+
+services:
+  billing-db:
+    image: postgres:16-bullseye
+    container_name: billing-db
+    env_file:
+      - billing_db/.env
+    volumes:
+      - billing_db_volume:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    ports:
+      - "5432:5432"
+    profiles: [billing-admin, billing]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $$POSTGRES_DB -U $$POSTGRES_USER"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  billing-admin:
+    build:
+      context: ./billing_admin
+      additional_contexts:
+         billing_db: billing_db
+    container_name: billing-admin
+    env_file:
+      - billing_admin/.env
+    expose:
+      - 8000
+    entrypoint: "sh ./docker-entrypoint.sh"
+    depends_on:
+      billing-db:
+        condition: service_healthy
+    profiles: [billing-admin]
+    networks:
+      default:
+      cinema_network:
+        ipv4_address: 172.30.1.206
+    healthcheck:
+      test: [ "CMD-SHELL", 'curl -X GET -s --header "X-Request-Id: 1" http://billing-admin:8000/healthcheck || exit 1' ]
+      interval: 30s
+      timeout: 10s
+      retries: 50
+      start_period: 30s
+
+  billing:
+    build:
+      context: ./billing
+      additional_contexts:
+         billing_db: billing_db
+    container_name: billing
+    env_file:
+      - billing/.env
+    restart: 'always'
+    expose:
+      - "8000"
+    ports:
+      - "8000:8000"
+    depends_on:
+      billing-db:
+        condition: service_healthy
+    profiles: [billing]
+    networks:
+      default:
+      cinema_network:
+        ipv4_address: 172.30.1.207
+    healthcheck:
+      test: [ "CMD-SHELL", 'curl -X GET --header "X-Request-Id: 1" -s http://billing:8000/healthcheck || exit 1' ]
+      interval: 30s
+      timeout: 10s
+      retries: 50
+      start_period: 30s
+  
+  redis-billing:
+    image: redis:7.2.3
+    container_name: redis-billing
+    volumes:
+      - redis_billing_volume:/data
+    restart: always
+    expose:
+      - "6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    profiles: [billing]
+
+  redis-billing-jobs:
+    image: redis:7.2.3
+    container_name: redis-billing-jobs
+    restart: always
+    profiles: [billing]
+    expose:
+      - "6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  billing_scheduler:
+    build:
+      context: ./billing_scheduler
+      additional_contexts:
+         billing_db: billing_db
+    env_file:
+      - billing_scheduler/.env
+    entrypoint: "sh ./docker-entrypoint.sh"
+    profiles: [billing]
+    depends_on:
+      redis-billing-jobs:
+        condition: service_healthy
+      billing-db:
+        condition: service_healthy
+      # notification:
+      #   condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  billing_db_volume:
+  redis_billing_volume:

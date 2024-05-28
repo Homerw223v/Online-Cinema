@@ -1,0 +1,62 @@
+version: "3.9"
+
+services:
+  auth:
+    build: ./auth
+    container_name: auth
+    env_file:
+      - auth/.env
+    expose:
+      - 8000
+    entrypoint: "sh ./docker-entrypoint.sh"
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      redis-auth:
+        condition: service_healthy
+    profiles: [auth]
+    healthcheck:
+      test: [ "CMD-SHELL", 'curl -X GET -s --header "X-Request-Id: 2" http://auth:8000/healthcheck || exit 1' ]
+      interval: 30s
+      timeout: 10s
+      retries: 50
+      start_period: 30s
+    networks:
+      default:
+      cinema_network:
+        ipv4_address: 172.30.1.201
+
+  auth-db:
+    image: postgres:16-bullseye
+    container_name: auth-db
+    env_file:
+      - auth_db/.env
+    volumes:
+      - auth_db_volume:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    profiles: [auth]
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -d $$POSTGRES_DB -U $$POSTGRES_USER" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis-auth:
+    image: redis:7.2.3
+    container_name: redis-auth
+    volumes:
+      - redis_auth_volume:/data
+    expose:
+      - "6379"
+    profiles: [auth]
+    restart: always
+    healthcheck:
+      test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  auth_db_volume:
+  redis_auth_volume:

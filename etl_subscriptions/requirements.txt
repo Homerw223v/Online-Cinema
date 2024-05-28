@@ -1,0 +1,4 @@
+backoff==2.2.1
+psycopg2==2.9.9
+pydantic_settings==2.1.0
+pydantic[email]==2.5.2

@@ -1,0 +1,97 @@
+name: Проверка
+on: push
+jobs:
+  linter:
+    runs-on: ubuntu-latest
+    env:
+      report_path: flake_report
+    strategy:
+      matrix:
+        python-version: [ "3.10", "3.11" ]
+
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Установка Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Установка зависимостей
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Создание папки для отчета
+        run: |
+          mkdir -p ${{ env.report_path }}_${{ matrix.python-version }}
+      - name: Flake8
+        run: flake8 --config setup.cfg .
+#        run: flake8 --format=html --htmldir=${{ env.report_path }}_${{ matrix.python-version }} --config setup.cfg .
+
+#      - name: Сохранение результатов проверки
+#        if: always()
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: flake8_report_${{ matrix.python-version }}
+#          path: ${{ env.report_path }}_${{ matrix.python-version }}
+
+#  mypy_check:
+#    runs-on: ubuntu-latest
+#    strategy:
+#      matrix:
+#        python-version: [ "3.10", "3.11" ]
+#
+#    steps:
+#      - uses: actions/checkout@v4
+#      - name: Установка Python ${{ matrix.python-version }}
+#        uses: actions/setup-python@v4
+#        with:
+#          python-version: ${{ matrix.python-version }}
+#
+#      - name: Установка зависимостей
+#        run: |
+#          python -m pip install --upgrade pip
+#          pip install pydantic==2.6.3  \
+#          pip install mypy==1.8.0 \
+#          pip install types-PyYAML==6.0.12.12  \
+#          pip install types-requests==2.31.0.20240218
+#      - name: Mypy проверка
+#        run: mypy ./metrics_api ./metrics_etl
+
+
+#  pytest:
+#    runs-on: ubuntu-latest
+#    strategy:
+#      matrix:
+#        python-version: [ "3.10", "3.11" ]
+#
+#    steps:
+#      - uses: actions/checkout@v4
+#      - name: Установка Python ${{ matrix.python-version }}
+#        uses: actions/setup-python@v4
+#        with:
+#          python-version: ${{ matrix.python-version }}
+#
+#      - name: Установка зависимостей
+#        run: |
+#          pip install pytest==8.1.1
+#      - name: Pytest проверка
+#        run: pytest -vv metrics_api/tests/tests
+
+
+#  notify_telegram:
+#    runs-on: ubuntu-latest
+#    needs: [linter, mypy_check, pytest]
+#    steps:
+#      - name: Оповещение в телеграмме
+#        uses: appleboy/telegram-action@master
+#        with:
+#          to: ${{ secrets.TELEGRAM_TO }}
+#          token: ${{ secrets.BOT_ID }}
+#          message: |
+#            ${{ github.actor }} created commit.
+#            Workflow has passed successfully.
+#
+#            Repository: ${{ github.repository }}
+#
+#            See changes: https://github.com/${{ github.repository }}/commit/${{github.sha}}

@@ -1,0 +1,78 @@
+version: "3.9"
+services:
+  kafka-init:
+    image: bitnami/kafka:3.4
+    entrypoint: "bash /opt/bitnami/kafka/bin/kafka-topics.sh --create --if-not-exists --topic metrics
+                --replication-factor=2 --partitions=3 --bootstrap-server kafka-0:9092"
+    profiles: [metrics]
+    depends_on:
+      kafka-0:
+        condition: service_healthy
+
+  kafka-0:
+    image: bitnami/kafka:3.4
+    env_file:
+      - ./kafka/.env
+    environment:
+      - KAFKA_CFG_NODE_ID=0
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-0:9092
+    expose:
+      - "9092"
+      - "9093"
+    volumes:
+     - kafka_0_data:/bitnami/kafka
+    profiles: [metrics]
+    healthcheck:
+      test: "bash /opt/bitnami/kafka/bin/kafka-cluster.sh cluster-id --bootstrap-server localhost:9092 || exit 1"
+      start_period: 15s
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    restart: 'always'
+
+  kafka-1:
+    image: bitnami/kafka:3.4
+    env_file:
+      - ./kafka/.env
+    environment:
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-1:9092
+    expose:
+      - "9092"
+      - "9093"
+    volumes:
+     - kafka_1_data:/bitnami/kafka
+    profiles: [metrics]
+    healthcheck:
+      test: "bash /opt/bitnami/kafka/bin/kafka-cluster.sh cluster-id --bootstrap-server localhost:9092 || exit 1"
+      start_period: 15s
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    restart: 'always'
+
+  kafka-2:
+    image: bitnami/kafka:3.4
+    env_file:
+      - ./kafka/.env
+    environment:
+      - KAFKA_CFG_NODE_ID=2
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-2:9092
+    expose:
+      - "9092"
+      - "9093"
+    volumes:
+     - kafka_2_data:/bitnami/kafka
+    profiles: [metrics]
+    healthcheck:
+      test: "bash /opt/bitnami/kafka/bin/kafka-cluster.sh cluster-id --bootstrap-server localhost:9092 || exit 1"
+      start_period: 15s
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    restart: 'always'
+  
+volumes:
+  kafka_0_data:
+  kafka_1_data:
+  kafka_2_data:

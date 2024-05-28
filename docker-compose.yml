@@ -1,0 +1,78 @@
+version: "3.9"
+
+include:
+  - auth_module/docker-compose.auth.yml
+  - billing_module/docker-compose.billing.yml
+  - cinema_module/docker-compose.cinema.yml
+  - metrics_module/docker-compose.metrics.yml
+  - docker-compose.ugc.yml
+  - docker-compose.notify.yml
+  - docker-compose.elk.yml
+
+services:
+  nginx:
+    image: nginx:1.24-bullseye
+    container_name: nginx
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/configs:/etc/nginx/conf.d:ro
+      - ./nginx/data:/data:ro
+      - /tmp/logs/nginx/:/var/log/nginx/
+      - static_volume:/home/app/web/staticfiles:ro
+    ports:
+      - "80:80"
+    extra_hosts:
+        - auth:172.30.1.201
+        - cinema-online:172.30.1.202
+        - movies-admin:172.30.1.203
+        - metrics-api:172.30.1.204
+        - ugc:172.30.1.205
+        - billing-admin:172.30.1.206
+        - billing:172.30.1.207
+        - notification:172.30.1.208
+        - admin_template:172.30.1.209
+        - websocket-worker:172.30.1.210
+    restart: 'always'
+    profiles:
+      - admin_panel
+      - cinema
+      - auth
+      - metrics
+      - ugc_single
+      - ugc_cluster
+      - billing-admin
+      - billing
+    networks:
+      cinema_network:
+      default:
+
+  subscriptions_etl:
+    build: ./etl_subscriptions
+    container_name: subscriptions_etl
+    env_file:
+      - etl_subscriptions/.env
+    depends_on:
+      billing-db:
+        condition: service_healthy
+      billing-admin:
+        condition: service_healthy
+    profiles: [subscription_etl]
+
+  jaeger-tracing:
+    image: jaegertracing/all-in-one:latest
+    expose:
+      - "6831"
+    profiles: [tracing]
+
+
+networks:
+  cinema_network:
+    ipam:
+      driver: default
+      config:
+        - subnet: "172.30.1.0/24"
+
+volumes:
+  redis_volume:
+  static_volume:
+

@@ -1,0 +1,143 @@
+version: "3.9"
+
+services:
+  cinema-online:
+    build: ./cinema_online
+    container_name: cinema-online
+    env_file:
+      - cinema_online/.env
+    restart: 'always'
+    expose:
+      - "8000"
+    depends_on:
+      elastic:
+        condition: service_healthy
+      redis-cinema:
+        condition: service_healthy
+    profiles: [cinema]
+    networks:
+      default:
+      cinema_network:
+        ipv4_address: 172.30.1.202
+    healthcheck:
+      test: [ "CMD-SHELL", 'curl -X GET --header "X-Request-Id: 1" -s http://cinema-online:8000/healthcheck || exit 1' ]
+      interval: 30s
+      timeout: 10s
+      retries: 50
+      start_period: 30s
+
+  elastic:
+    image: elasticsearch:8.11.1
+    container_name: elastic
+    env_file:
+      - elastic/.env
+    volumes:
+      - elastic_volume:/usr/share/elasticsearch/data
+    restart: always
+    expose:
+      - "9200"
+    profiles:
+      - cinema
+      - etl
+    healthcheck:
+      test: ["CMD-SHELL", "curl -X GET -s http://elastic:9200/_cluster/health?pretty || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 50
+      start_period: 30s
+
+  movies-admin:
+    build: ./movies_admin
+    container_name: movies-admin
+    volumes:
+      - static_volume:/home/app/web/staticfiles
+    env_file:
+      - movies_admin/.env
+    restart: 'always'
+    expose:
+      - "8000"
+    entrypoint: "sh ./docker-entrypoint.sh"
+    depends_on:
+      movies-admin-db:
+        condition: service_healthy
+    profiles: [admin_panel]
+    networks:
+      default:
+      cinema_network:
+        ipv4_address: 172.30.1.203
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -X GET -s http://movies-admin:8000/admin || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 50
+      start_period: 30s
+
+  movies-admin-db:
+    image: postgres:16-bullseye
+    container_name: movies-admin-db
+    env_file:
+      - movies_admin_db/.env
+    volumes:
+      - movies_admin_db_volume:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    profiles:
+      - admin_panel
+      - etl
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $$POSTGRES_DB -U $$POSTGRES_USER"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  etl:
+    build: ./etl
+    container_name: etl
+    env_file:
+      - etl/.env
+    restart: always
+    depends_on:
+      elastic:
+        condition: service_healthy
+      movies-admin-db:
+        condition: service_healthy
+      redis-cinema:
+        condition: service_healthy
+    profiles: [etl]
+
+  db-initializing:
+    build: ./init_db
+    container_name: db-initializing
+    env_file:
+      - init_db/.env
+    depends_on:
+      movies-admin-db:
+        condition: service_healthy
+      movies-admin:
+        condition: service_healthy
+    profiles: [init]
+  
+  redis-cinema:
+    image: redis:7.2.3
+    container_name: redis-cinema
+    volumes:
+      - redis_cinema_volume:/data
+    restart: always
+    expose:
+      - "6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - cinema
+      - ugc_single
+      - ugc_cluster
+      - etl
+
+volumes:
+  static_volume:
+  movies_admin_db_volume:
+  elastic_volume:
+  redis_cinema_volume:
