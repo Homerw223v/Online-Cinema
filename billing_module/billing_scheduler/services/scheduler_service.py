@@ -68,4 +68,3 @@ class SchedulerService(AbstractSchedule):
         data = {"user_id": user_id, "tariff_id": tariff_id}
         await self.auth.post_query(settings.job.auto_payment, request_id=settings.x_request_id, data=data)
         await asyncio.sleep(0.1)
-

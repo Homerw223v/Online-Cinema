@@ -93,7 +93,7 @@ class AuthService:
         headers = {
             "Authorization": f"Bearer {self.refresh_token}",
             "X-Request-Id": request_id,
-            }
+        }
         async with self.session.post(url=self.refresh_url, headers=headers) as resp:
             if resp.ok:
                 tokens = Tokens.model_validate_json(await resp.text())

@@ -59,7 +59,7 @@ class DatabaseService(AbstractDatabase):
         one_day_later: dt.datetime = current_time + dt.timedelta(days=1)
         two_days_later: dt.datetime = current_time + dt.timedelta(days=2)
         smtp = select(UserSubscription.user_id, Tariff.id).join(
-            Tariff, Tariff.subscription_id == UserSubscription.subscription_id
+            Tariff, Tariff.subscription_id == UserSubscription.subscription_id,
         ).join(
             UserPaymentMethod,
             and_(

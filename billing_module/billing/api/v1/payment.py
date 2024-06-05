@@ -37,7 +37,7 @@ async def create(
     response_model=RetrievePayment,
     status_code=status.HTTP_201_CREATED,
 )
-async def create(
+async def create( # noqa
     user_payment: UserPayment,
     payment_service: PaymentService = Depends(get_payment_service),
     is_admin: bool = Depends(is_admin_dep),
